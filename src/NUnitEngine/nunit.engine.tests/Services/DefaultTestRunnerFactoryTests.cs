@@ -80,9 +80,9 @@ namespace NUnit.Engine.Services.Tests
         [TestCase("x.dll",             null,        typeof(ProcessRunner))]
         [TestCase("x.nunit",           "Single",    typeof(AggregatingTestRunner))]
         [TestCase("x.dll",             "Single",    typeof(TestDomainRunner))]
-        [TestCase("x.nunit",           "Separate",  typeof(ProcessRunner))]
+        [TestCase("x.nunit",           "Separate",  typeof(AggregatingTestRunner))]
         [TestCase("x.dll",             "Separate",  typeof(ProcessRunner))]
-        [TestCase("x.nunit",           "Multiple",  typeof(MultipleTestProcessRunner))]
+        [TestCase("x.nunit",           "Multiple",  typeof(AggregatingTestRunner))]
         [TestCase("x.dll",             "Multiple",  typeof(MultipleTestProcessRunner))]
         // Two files
         [TestCase("x.nunit y.nunit",   null,        typeof(AggregatingTestRunner))]
