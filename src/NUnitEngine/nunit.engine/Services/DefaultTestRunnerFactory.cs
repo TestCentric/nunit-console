@@ -66,32 +66,27 @@ namespace NUnit.Engine.Services
         /// <returns>A TestRunner</returns>
         public override ITestEngineRunner MakeTestRunner(TestPackage package)
         {
-            int assemblyCount = 0;
+#if !NETSTANDARD1_6
             int projectCount = 0;
 
             foreach (var subPackage in package.SubPackages)
             {
                 var testFile = subPackage.FullName;
 
-                if (PathUtils.IsAssemblyFileType(testFile))
-                    assemblyCount++;
-#if !NETSTANDARD1_6
-                else if (_projectService.CanLoadFrom(testFile))
+                if (_projectService.CanLoadFrom(testFile))
                     projectCount++;
-#endif
             }
 
-            // If we have multiple projects or a project plus assemblies
-            // then defer to the AggregatingTestRunner, which will make
-            // the decision on a file by file basis so that each project
-            // runs with its own settings. Note that bad extensions are
-            // ignored rather than assumed to be projects. This doesn't
-            // really matter since they will result in an error anyway.
-            if (projectCount > 1 || projectCount > 0 && assemblyCount > 0)
+            // If we have any projects, then defer to the AggregatingTestRunner, 
+            // which will make the decision on a file by file basis so that each
+            // project runs with its own settings. Bad extensions are ignored
+            // since they will result in an error anyway.
+            if (projectCount > 0)
                 return new AggregatingTestRunner(ServiceContext, package);
+#endif
 
 #if NETSTANDARD1_6 || NETSTANDARD2_0
-            if (projectCount > 0 || package.SubPackages.Count > 1)
+            if (package.SubPackages.Count > 1)
                 return new AggregatingTestRunner(ServiceContext, package);
 
             return base.MakeTestRunner(package);
@@ -104,9 +99,7 @@ namespace NUnit.Engine.Services
             {
                 default:
                 case ProcessModel.Default:
-                    if (projectCount > 0)
-                        return new AggregatingTestRunner(ServiceContext, package);
-                    else if (package.SubPackages.Count > 1)
+                    if (package.SubPackages.Count > 1)
                         return new MultipleTestProcessRunner(this.ServiceContext, package);
                     else
                         return new ProcessRunner(this.ServiceContext, package);
@@ -118,10 +111,7 @@ namespace NUnit.Engine.Services
                     return new ProcessRunner(this.ServiceContext, package);
 
                 case ProcessModel.InProcess:
-                    if (projectCount > 0)
-                        return new AggregatingTestRunner(ServiceContext, package);
-                    else
-                        return base.MakeTestRunner(package);
+                    return base.MakeTestRunner(package);
             }
         }
 
