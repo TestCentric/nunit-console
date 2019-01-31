@@ -6,7 +6,7 @@ image: Visual Studio 2017
 
 build_script:
   - nuget restore src\NUnitEngine\mock-assembly\mock-assembly.csproj
-  - ps: .\build.ps1 -Target "Appveyor" -Configuration "Release"
+  - ps: .\build.ps1 -Target "Appveyor" -Configuration "Debug"
 
 # disable built-in tests.
 test: off
@@ -24,4 +24,4 @@ deploy:
     skip_symbols: true
     on:
       branch: master
-      APPVEYOR_REPO_NAME: nunit/nunit-console
+      APPVEYOR_REPO_NAME: TestCentric/nunit-console
