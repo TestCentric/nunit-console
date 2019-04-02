@@ -33,9 +33,26 @@ using System.ComponentModel;
 
 namespace NUnit.Engine.Runners
 {
+    /// <summary>
+    /// MasterTestRunner implements the ITestRunner interface, which
+    /// is the user-facing representation of a test runner. It uses
+    /// various internal runners to load and run tests for the user.
+    /// </summary>
     public class MasterTestRunner : ITestRunner
     {
-        private const string TEST_RUN_ELEMENT = "test-run";
+        // MasterTestRunner is the only runner that is passed back
+        // to users asking for an ITestRunner. The actual details of
+        // execution are handled by various internal runners, which
+        // impement ITestEngineRunner.
+        //
+        // Explore and execution results from MasterTestRunner are
+        // returned as XmlNodes, created from the internal 
+        // TestEngineResult representation.
+        // 
+        // MasterTestRUnner is responsible for creating the test-run
+        // element, which wraps all the individual assembly and project
+        // results.
+
         private readonly ITestEngineRunner _engineRunner;
         private readonly IServiceLocator _services;
 #if !NETSTANDARD1_6
@@ -105,8 +122,7 @@ namespace NUnit.Engine.Runners
         /// <returns>An XmlNode representing the loaded assembly.</returns>
         public XmlNode Load()
         {
-            LoadResult = PrepareResult(_engineRunner.Load())
-                .Aggregate(TEST_RUN_ELEMENT, TestPackage.Name, TestPackage.FullName);
+            LoadResult = PrepareResult(_engineRunner.Load()).MakeTestRunResult(TestPackage);
 
             return LoadResult.Xml;
         }
@@ -127,8 +143,7 @@ namespace NUnit.Engine.Runners
         /// <exception cref="InvalidOperationException">If no package has been loaded</exception>
         public XmlNode Reload()
         {
-            LoadResult = PrepareResult(_engineRunner.Reload())
-               .Aggregate(TEST_RUN_ELEMENT, TestPackage.Name, TestPackage.FullName);
+            LoadResult = PrepareResult(_engineRunner.Reload()).MakeTestRunResult(TestPackage);
 
             return LoadResult.Xml;
         }
@@ -154,7 +169,7 @@ namespace NUnit.Engine.Runners
         /// <returns>An XmlNode giving the result of the test execution</returns>
         public XmlNode Run(ITestEventListener listener, TestFilter filter)
         {
-            return PrepareResult(RunTests(listener, filter)).Xml;
+            return RunTests(listener, filter).Xml;
         }
 
 
@@ -190,7 +205,7 @@ namespace NUnit.Engine.Runners
         public XmlNode Explore(TestFilter filter)
         {
             LoadResult = PrepareResult(_engineRunner.Explore(filter))
-                .Aggregate(TEST_RUN_ELEMENT, TestPackage.Name, TestPackage.FullName);
+                .MakeTestRunResult(TestPackage);
 
             return LoadResult.Xml;
         }
@@ -255,16 +270,69 @@ namespace NUnit.Engine.Runners
             }
         }
 
+        // The TestEngineResult returned to MasterTestRunner contains no info
+        // about projects. At this point, if thre are any projects, the result
+        // needs to be modified to include info about them. Doing it this way
+        // allows the lower-level runners to be completely ignorant of projects
         private TestEngineResult PrepareResult(TestEngineResult result)
         {
             if (result == null) throw new ArgumentNullException("result");
 
-            if (!IsProjectPackage(TestPackage))
-            {
-                return result;
-            }
+            // See if we have any projects to deal with. At this point,
+            // any subpackage, which itself has subpackages, is a project
+            // we expanded.
+            bool hasProjects = false;
+                foreach (var p in TestPackage.SubPackages)
+                    hasProjects |= p.HasSubPackages();
 
-            return result.MakePackageResult(TestPackage.Name, TestPackage.FullName);
+            // If no Projects, there's nothing to do
+            if (!hasProjects)
+                return result;
+
+            // If there is just one subpackage, it has to be a project and we don't
+            // need to rebuild the XML but only wrap it with a project result.
+            if (TestPackage.SubPackages.Count == 1)
+                return result.MakeProjectResult(TestPackage.SubPackages[0]);
+
+            // Most complex case - we need to work with the XML in order to
+            // examine and rebuild the result to include project nodes.
+            // NOTE: The algorithm used here relies on the ordering of nodes in the
+            // result matching the ordering of subpackages under the top-level package.
+            // If that should change in the future, then we would need to implement
+            // identification and summarization of projects into each of the lower-
+            // level TestEngineRunners. In that case, we will be warned by failures
+            // of some of the MasterTestRunnerTests.
+
+            // Start a fresh TestEngineResult for top level
+            var topLevelResult = new TestEngineResult();
+            int nextTest = 0;
+
+            foreach (var subPackage in TestPackage.SubPackages)
+            {
+                if (subPackage.HasSubPackages())
+                {
+                    // This is a project, create an intermediate result
+                    var projectResult = new TestEngineResult();
+                    
+                    // Now move any children of this project under it. As noted
+                    // above, we must rely on ordering here because (1) the
+                    // fullname attribute is not reliable on all nunit framework
+                    // versions, (2) we may have duplicates of the same assembly
+                    // and (3) we have no info about the id of each assembly.
+                    int numChildren = subPackage.SubPackages.Count;
+                    while (numChildren-- > 0)
+                        projectResult.Add(result.XmlNodes[nextTest++]);
+                    
+                    topLevelResult.Add(projectResult.MakeProjectResult(subPackage).Xml);
+                }
+                else
+                {
+                    // Add the next assembly package to our new result
+                    topLevelResult.Add(result.XmlNodes[nextTest++]);
+                }
+            }
+            
+            return topLevelResult;
         }
 
         private void EnsurePackagesAreExpanded(TestPackage package)
@@ -278,7 +346,7 @@ namespace NUnit.Engine.Runners
 
             if (package.SubPackages.Count == 0 && IsProjectPackage(package))
             {
-                ExpandProjects(package);
+                _projectService.ExpandProjectPackage(package);
             }
         }
 
@@ -290,14 +358,6 @@ namespace NUnit.Engine.Runners
                 _projectService != null
                 && !string.IsNullOrEmpty(package.FullName)
                 && _projectService.CanLoadFrom(package.FullName);
-        }
-
-        private void ExpandProjects(TestPackage package)
-        {
-            if (package == null) throw new ArgumentNullException("package");
-
-            if (_projectService.CanLoadFrom(package.FullName))
-                _projectService.ExpandProjectPackage(package);
         }
 
         // Any Errors thrown from this method indicate that the client
@@ -379,7 +439,7 @@ namespace NUnit.Engine.Runners
             DateTime startTime = DateTime.UtcNow;
             long startTicks = Stopwatch.GetTimestamp();
 
-            TestEngineResult result = _engineRunner.Run(eventDispatcher, filter).Aggregate("test-run", TestPackage.Name, TestPackage.FullName);
+            TestEngineResult result = PrepareResult(_engineRunner.Run(eventDispatcher, filter)).MakeTestRunResult(TestPackage);
 
             // These are inserted in reverse order, since each is added as the first child.
             InsertFilterElement(result.Xml, filter);

@@ -168,12 +168,15 @@ namespace NUnit.ConsoleRunner
 
         private int RunTests(TestPackage package, TestFilter filter)
         {
+
+            var writer = new ColorConsoleWriter(!_options.NoColor);
+
             foreach (var spec in _options.ResultOutputSpecifications)
             {
                 var outputPath = Path.Combine(_workDirectory, spec.OutputPath);
-
+                
                 IResultWriter resultWriter;
-
+                
                 try
                 {
                     resultWriter = GetResultWriter(spec);
@@ -181,6 +184,20 @@ namespace NUnit.ConsoleRunner
                 catch (Exception ex)
                 {
                     throw new NUnitEngineException($"Error encountered in resolving output specification: {spec}", ex);
+                }
+
+                try
+                {
+                    var outputDirectory = Path.GetDirectoryName(outputPath);
+                    Directory.CreateDirectory(outputDirectory);
+                }
+                catch (SystemException ex)
+                {
+                    writer.WriteLine(ColorStyle.Error, String.Format(
+                        "The directory in --result {0} could not be created",
+                        spec.OutputPath));
+                    writer.WriteLine(ColorStyle.Error, ExceptionHelper.BuildMessage(ex));
+                    return ConsoleRunner.UNEXPECTED_ERROR;
                 }
 
                 try
@@ -194,6 +211,7 @@ namespace NUnit.ConsoleRunner
                             "The path specified in --result {0} could not be written to",
                             spec.OutputPath), ex);
                 }
+
             }
 
             var labels = _options.DisplayTestLabels != null
@@ -207,7 +225,6 @@ namespace NUnit.ConsoleRunner
             try
             {
                 using (new SaveConsoleOutput())
-                using (new ColorConsole(ColorStyle.Output))
                 using (ITestRunner runner = _engine.GetRunner(package))
                 using (var output = CreateOutputWriter())
                 {
@@ -224,8 +241,6 @@ namespace NUnit.ConsoleRunner
             {
                 engineException = ex;
             }
-
-            var writer = new ColorConsoleWriter(!_options.NoColor);
 
             if (result != null)
             {

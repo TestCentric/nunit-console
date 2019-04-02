@@ -7,7 +7,7 @@
     <authors>Charlie Poole</authors>
     <owners>Charlie Poole</owners>
     <licenseUrl>https://raw.githubusercontent.com/nunit/nunit-console/master/LICENSE.txt</licenseUrl>
-    <projectUrl>http://nunit.org</projectUrl>
+    <projectUrl>https://nunit.org</projectUrl>
     <repository type="git" url="https://github.com/nunit/nunit-console"/>
     <iconUrl>https://cdn.rawgit.com/nunit/resources/master/images/icon/nunit_256.png</iconUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
@@ -29,7 +29,7 @@
     <releaseNotes>This release uses the latest version of the TeamCityEventListener extension.</releaseNotes>
     <language>en-US</language>
     <tags>nunit test testing tdd runner</tags>
-    <copyright>Copyright (c) 2018 Charlie Poole</copyright>
+    <copyright>Copyright (c) 2019 Charlie Poole</copyright>
     <dependencies>
       <group>
         <dependency id="NUnit.Console" version="$version$" />
