@@ -86,7 +86,7 @@ Setup(context =>
 
         if (branch == "master" && !isPullRequest)
         {
-            productVersion = version + "-dev-" + buildNumber;
+            productVersion = version + "-tc-" + buildNumber;
         }
         else
         {
