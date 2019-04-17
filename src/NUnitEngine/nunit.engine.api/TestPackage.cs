@@ -63,6 +63,7 @@ namespace NUnit.Engine
         /// <param name="testFiles"></param>
         public TestPackage(IList<string> testFiles)
         {
+            _nextID = 0;
             ID = GetNextID();
             SubPackages = new List<TestPackage>();
             Settings = new Dictionary<string,object>();
