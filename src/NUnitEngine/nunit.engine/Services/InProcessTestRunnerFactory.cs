@@ -20,6 +20,8 @@
 // OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 // ***********************************************************************
+
+using System;
 using NUnit.Engine.Internal;
 using NUnit.Engine.Runners;
 
@@ -72,11 +74,52 @@ namespace NUnit.Engine.Services
 #endif
         }
 
-        public virtual bool CanReuse(ITestEngineRunner runner, TestPackage package)
+        /// <summary>
+        /// Return true if the provided runner is suitable for reuse in loading
+        /// the test package provided. Otherwise, return false. Runners that
+        /// cannot be reused must always return false.
+        /// </summary>
+        /// <param name="runner">An ITestRunner to possibly be used.</param>
+        /// <param name="package">The TestPackage to be loaded.</param>
+        /// <returns>True if the runner may be reused for the provided package.</returns>
+        public bool CanReuse(ITestEngineRunner runner, TestPackage package)
         {
-            return false;
+            // Two different functions are involved here. First, the factory has to
+            // check if the proper runner type needed for the packagge is being used.
+            // Then it can ask that runner if it may be reused for this package.
+            return RunnerMatchesPackage(runner, package) && runner.CanReuseFor(package);
         }
 
-        #endregion
+        protected virtual bool RunnerMatchesPackage(ITestEngineRunner runner, TestPackage package)
+        {
+#if NETSTANDARD1_6 || NETSTANDARD2_0
+            return runner is LocalTestRunner;
+#else
+            DomainUsage domainUsage = (DomainUsage)System.Enum.Parse(
+                typeof(DomainUsage),
+                package.GetSetting(EnginePackageSettings.DomainUsage, "Default"));
+
+            switch (domainUsage)
+            {
+                default:
+                case DomainUsage.Default:
+                    if (package.SubPackages.Count > 1)
+                        return runner is MultipleTestDomainRunner;
+                    else
+                        return runner is TestDomainRunner;
+
+                case DomainUsage.Multiple:
+                    return runner is MultipleTestDomainRunner;
+
+                case DomainUsage.None:
+                    return runner is LocalTestRunner;
+
+                case DomainUsage.Single:
+                    return runner is TestDomainRunner;
+            }
+#endif
+        }
     }
+
+#endregion
 }

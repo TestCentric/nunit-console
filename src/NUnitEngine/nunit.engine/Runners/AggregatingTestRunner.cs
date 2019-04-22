@@ -136,6 +136,20 @@ namespace NUnit.Engine.Runners
             return ResultHelper.Merge(results);
         }
 
+        public override bool CanReuseFor(TestPackage package)
+        {
+            if (package.SubPackages.Count != Runners.Count)
+                return false;
+
+            var factory = Services.GetService<ITestRunnerFactory>();
+
+            for (int index = 0; index < Runners.Count; index++)
+                if (!factory.CanReuse(Runners[index], package.SubPackages[index]))
+                    return false;
+
+            return true;
+        }
+
         /// <summary>
         /// Unload any loaded TestPackages.
         /// </summary>

@@ -165,7 +165,20 @@ namespace NUnit.Engine.Runners
             if (this.TestPackage == null)
                 throw new InvalidOperationException("MasterTestRunner: Reload called before Load");
 
-            return LoadResult = ReloadPackage();
+            return TestRunnerFactory.CanReuse(this, TestPackage)
+                ? ReloadPackage()
+                : LoadPackage();
+        }
+
+        /// <summary>
+        /// Return true if the current runner can reload the specified package. Return false
+        /// if the package settings conflict with this runner's initial package settings.
+        /// </summary>
+        /// <param name="package">The package to be reloaded</param>
+        /// <returns>True if the package is reloadable, otherwise false.</returns>
+        public virtual bool CanReuseFor(TestPackage package)
+        {
+            return true;
         }
 
         /// <summary>

@@ -44,7 +44,9 @@ namespace NUnit.Engine.Runners.Tests
 
         private TestPackage _package;
         private ServiceContext _services;
+        private ITestRunnerFactory _testRunnerFactory;
         private MasterTestRunner _runner;
+        private ITestEngineRunner _engineRunner;
         private List<XmlNode> _events;
 
         public MasterTestRunnerTests(TestRunData testRunData)
@@ -128,10 +130,13 @@ namespace NUnit.Engine.Runners.Tests
 #endif
 #endif
             _services.Add(new DriverService());
-            _services.Add(new DefaultTestRunnerFactory());
+            _testRunnerFactory = new DefaultTestRunnerFactory();
+            _services.Add((IService)_testRunnerFactory);
             _services.ServiceManager.StartServices();
 
             _runner = new MasterTestRunner(_services, _package);
+            var prop = typeof(MasterTestRunner).GetField("_engineRunner", BindingFlags.NonPublic | BindingFlags.Instance);
+            _engineRunner = prop.GetValue(_runner) as ITestEngineRunner;
             _events = new List<XmlNode>();
         }
 
@@ -148,9 +153,7 @@ namespace NUnit.Engine.Runners.Tests
         [Test]
         public void CheckInternalRunner()
         {
-            var prop = typeof(MasterTestRunner).GetField("_engineRunner", BindingFlags.NonPublic | BindingFlags.Instance);
-            var runner = prop.GetValue(_runner);
-            Assert.That(runner, Is.TypeOf(_testRunData.ExpectedRunner));
+            Assert.That(_engineRunner, Is.TypeOf(_testRunData.ExpectedRunner));
         }
 
         [Test]
@@ -175,6 +178,24 @@ namespace NUnit.Engine.Runners.Tests
 
             CheckThatIdsAreUnique(result);
         }
+
+        [Test]
+        public void CanReuseWithSameSettings()
+        {
+            _runner.Load();
+            Assert.That(_testRunnerFactory.CanReuse(_engineRunner, _package));
+        }
+
+#if !NETCOREAPP1_1 && !NETCOREAPP2_0
+        [Test]
+        public void CannotReuseWithChangedProcessModel()
+        {
+            _runner.Load();
+            var package = new TestPackage(_testFiles);
+            package.AddSetting("ProcessModel", "Separate");
+            Assert.False(_testRunnerFactory.CanReuse(_engineRunner, package));
+        }
+#endif
 
         [Test]
         public void CountTestCases()
