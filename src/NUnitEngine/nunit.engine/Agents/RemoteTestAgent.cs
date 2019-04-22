@@ -183,6 +183,11 @@ namespace NUnit.Engine.Agents
             return _runner.Reload();
         }
 
+        public bool CanReuseFor(TestPackage package)
+        {
+            return _runner.CanReuseFor(package);
+        }
+
         /// <summary>
         /// Count the test cases that would be run under
         /// the specified filter.

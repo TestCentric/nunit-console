@@ -52,6 +52,14 @@ namespace NUnit.Engine
         TestEngineResult Reload();
 
         /// <summary>
+        /// Return true if the runner can reload the specified package. Return false
+        /// if the package settings conflict with this runner's initial package settings.
+        /// </summary>
+        /// <param name="package">The package to be reloaded</param>
+        /// <returns>True if the package is reloadable, otherwise false.</returns>
+        bool CanReuseFor(TestPackage package);
+
+        /// <summary>
         /// Count the test cases that would be run under
         /// the specified filter.
         /// </summary>
