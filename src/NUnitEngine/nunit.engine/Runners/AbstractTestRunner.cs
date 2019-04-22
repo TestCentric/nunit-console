@@ -165,9 +165,11 @@ namespace NUnit.Engine.Runners
             if (this.TestPackage == null)
                 throw new InvalidOperationException("MasterTestRunner: Reload called before Load");
 
-            return TestRunnerFactory.CanReuse(this, TestPackage)
+            LoadResult = TestRunnerFactory.CanReuse(this, TestPackage)
                 ? ReloadPackage()
                 : LoadPackage();
+
+            return LoadResult;
         }
 
         /// <summary>
